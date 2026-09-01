@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>To-Do List</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 20px; color: #e94560; }
+    .container { max-width: 600px; margin: 0 auto; }
+    .card { background: #16213e; padding: 20px; border-radius: 10px; margin-bottom: 15px; }
+    .card h2 { font-size: 18px; margin-bottom: 10px; color: #e94560; }
+    input, textarea { width: 100%; padding: 10px; border: none; border-radius: 5px; margin-bottom: 10px; font-size: 14px; font-family: Arial; }
+    textarea { height: 80px; resize: vertical; }
+    button { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; width: 100%; margin-bottom: 5px; }
+    button:hover { background: #c73e54; }
+    .result { background: #0f3460; padding: 15px; border-radius: 5px; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #333; font-size: 13px; }
+    th { color: #e94560; }
+    .done { text-decoration: line-through; color: #4ecca3; }
+    .btn-group { display: flex; gap: 5px; }
+    .btn-edit { background: #4ecca3; flex: 1; }
+    .btn-del { background: #e94560; flex: 1; }
+    #status { text-align: center; margin-top: 10px; color: #4ecca3; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>To-Do List API</h1>
+
+    <div class="card">
+      <h2>Tambah Todo</h2>
+      <input type="text" id="title" placeholder="Judul todo">
+      <textarea id="desc" placeholder="Deskripsi (opsional)"></textarea>
+      <button onclick="addTodo()">Tambah</button>
+      <div id="addResult"></div>
+    </div>
+
+    <div class="card">
+      <h2>Semua Todos</h2>
+      <button onclick="loadTodos()">Muat Semua</button>
+      <div id="todoList"></div>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3001';
+
+    async function addTodo() {
+      const title = document.getElementById('title').value;
+      const description = document.getElementById('desc').value;
+      const div = document.getElementById('addResult');
+      const status = document.getElementById('status');
+
+      if (!title) { alert('Masukkan judul!'); return; }
+      status.textContent = 'Loading...';
+
+      try {
+        const res = await fetch(`${API}/todos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, description })
+        });
+        const data = await res.json();
+        if (data.success) {
+          div.innerHTML = `<div class="result">Berhasil ditambahkan: <strong>${data.data.title}</strong></div>`;
+          document.getElementById('title').value = '';
+          document.getElementById('desc').value = '';
+          loadTodos();
+        } else {
+          div.innerHTML = `<div class="result" style="color:#e94560">${data.message}</div>`;
+        }
+        status.textContent = '';
+      } catch (err) {
+        div.innerHTML = `<div class="result" style="color:#e94560">Error: ${err.message}</div>`;
+        status.textContent = '';
+      }
+    }
+
+    async function loadTodos() {
+      const div = document.getElementById('todoList');
+      const status = document.getElementById('status');
+      status.textContent = 'Loading...';
+
+      try {
+        const res = await fetch(`${API}/todos`);
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          let html = `<table><tr><th>ID</th><th>Title</th><th>Status</th><th>Aksi</th></tr>`;
+          data.data.forEach(t => {
+            html += `<tr>
+              <td>${t.id}</td>
+              <td class="${t.completed ? 'done' : ''}">${t.title}</td>
+              <td>${t.completed ? '✅' : '⬜'}</td>
+              <td class="btn-group">
+                <button class="btn-edit" onclick="toggleTodo(${t.id}, ${!t.completed})">${t.completed ? 'Batal' : 'Selesai'}</button>
+                <button class="btn-del" onclick="deleteTodo(${t.id})">Hapus</button>
+              </td>
+            </tr>`;
+          });
+          html += '</table>';
+          div.innerHTML = html;
+        } else {
+          div.innerHTML = '<p style="margin-top:10px;color:#999">Belum ada todo</p>';
+        }
+        status.textContent = '';
+      } catch (err) {
+        div.innerHTML = `<p style="color:#e94560">Error: ${err.message}</p>`;
+        status.textContent = '';
+      }
+    }
+
+    async function toggleTodo(id, completed) {
+      await fetch(`${API}/todos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed })
+      });
+      loadTodos();
+    }
+
+    async function deleteTodo(id) {
+      if (!confirm('Yakin hapus?')) return;
+      await fetch(`${API}/todos/${id}`, { method: 'DELETE' });
+      loadTodos();
+    }
+  </script>
+</body>
+</html>
