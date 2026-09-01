@@ -1,0 +1,19 @@
+{
+  "name": "belajarnode-js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "todo": "node todo-api/server.js",
+    "notes": "node notes-api/server.js",
+    "shortener": "node url-shortener/server.js",
+    "start": "node start.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
