@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL Shortener</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 20px; color: #e94560; }
+    .container { max-width: 600px; margin: 0 auto; }
+    .card { background: #16213e; padding: 20px; border-radius: 10px; margin-bottom: 15px; }
+    .card h2 { font-size: 18px; margin-bottom: 10px; color: #e94560; }
+    input { width: 100%; padding: 10px; border: none; border-radius: 5px; margin-bottom: 10px; font-size: 14px; }
+    button { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; width: 100%; }
+    button:hover { background: #c73e54; }
+    .result { background: #0f3460; padding: 15px; border-radius: 5px; margin-top: 10px; word-break: break-all; }
+    .result a { color: #e94560; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #333; font-size: 13px; }
+    th { color: #e94560; }
+    .clicks { color: #4ecca3; font-weight: bold; }
+    #status { text-align: center; margin-top: 10px; color: #4ecca3; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>URL Shortener</h1>
+
+    <div class="card">
+      <h2>Pendekan URL</h2>
+      <input type="text" id="urlInput" placeholder="https://example.com">
+      <button onclick="shortenURL()">Buat Short URL</button>
+      <div id="shortenResult"></div>
+    </div>
+
+    <div class="card">
+      <h2>Semua Shortened URLs</h2>
+      <button onclick="loadAll()">Muat Semua</button>
+      <div id="allUrls"></div>
+    </div>
+
+    <div class="card">
+      <h2>Cek Statistik</h2>
+      <input type="text" id="statsInput" placeholder="Masukkan short code (contoh: a1b2c3)">
+      <button onclick="checkStats()">Cek</button>
+      <div id="statsResult"></div>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3003';
+
+    async function shortenURL() {
+      const url = document.getElementById('urlInput').value;
+      const resultDiv = document.getElementById('shortenResult');
+      const statusDiv = document.getElementById('status');
+
+      if (!url) { alert('Masukkan URL dulu!'); return; }
+
+      statusDiv.textContent = 'Loading...';
+
+      try {
+        const res = await fetch(`${API}/shorten`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          resultDiv.innerHTML = `
+            <div class="result">
+              <strong>Short URL:</strong> <a href="${data.data.shortUrl}" target="_blank">${data.data.shortUrl}</a><br>
+              <strong>Original:</strong> ${data.data.originalUrl}<br>
+              <strong>Code:</strong> ${data.data.shortCode}
+            </div>`;
+          statusDiv.textContent = 'Berhasil dibuat!';
+        } else {
+          resultDiv.innerHTML = `<div class="result" style="color:#e94560">${data.message}</div>`;
+          statusDiv.textContent = '';
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="result" style="color:#e94560">Error: ${err.message}</div>`;
+        statusDiv.textContent = '';
+      }
+    }
+
+    async function loadAll() {
+      const div = document.getElementById('allUrls');
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = 'Loading...';
+
+      try {
+        const res = await fetch(`${API}/urls`);
+        const data = await res.json();
+
+        if (data.success && data.data.length > 0) {
+          let html = `<table>
+            <tr><th>Short Code</th><th>Original URL</th><th>Clicks</th></tr>`;
+          data.data.forEach(item => {
+            html += `<tr>
+              <td><a href="${API}/${item.shortCode}" target="_blank">${item.shortCode}</a></td>
+              <td>${item.originalUrl.substring(0, 30)}...</td>
+              <td class="clicks">${item.clicks}</td>
+            </tr>`;
+          });
+          html += '</table>';
+          div.innerHTML = html;
+        } else {
+          div.innerHTML = '<p style="margin-top:10px;color:#999">Belum ada URL</p>';
+        }
+        statusDiv.textContent = '';
+      } catch (err) {
+        div.innerHTML = `<p style="color:#e94560">Error: ${err.message}</p>`;
+        statusDiv.textContent = '';
+      }
+    }
+
+    async function checkStats() {
+      const code = document.getElementById('statsInput').value;
+      const div = document.getElementById('statsResult');
+      const statusDiv = document.getElementById('status');
+
+      if (!code) { alert('Masukkan short code!'); return; }
+
+      statusDiv.textContent = 'Loading...';
+
+      try {
+        const res = await fetch(`${API}/stats/${code}`);
+        const data = await res.json();
+
+        if (data.success) {
+          div.innerHTML = `
+            <div class="result">
+              <strong>Short Code:</strong> ${data.data.shortCode}<br>
+              <strong>Original:</strong> ${data.data.originalUrl}<br>
+              <strong>Clicks:</strong> <span class="clicks">${data.data.clicks}</span><br>
+              <strong>Created:</strong> ${data.data.createdAt}
+            </div>`;
+        } else {
+          div.innerHTML = `<div class="result" style="color:#e94560">${data.message}</div>`;
+        }
+        statusDiv.textContent = '';
+      } catch (err) {
+        div.innerHTML = `<div class="result" style="color:#e94560">Error: ${err.message}</div>`;
+        statusDiv.textContent = '';
+      }
+    }
+  </script>
+</body>
+</html>
