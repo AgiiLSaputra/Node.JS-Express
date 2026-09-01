@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Notes App</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 20px; color: #e94560; }
+    .container { max-width: 700px; margin: 0 auto; }
+    .card { background: #16213e; padding: 20px; border-radius: 10px; margin-bottom: 15px; }
+    .card h2 { font-size: 18px; margin-bottom: 10px; color: #e94560; }
+    input, textarea, select { width: 100%; padding: 10px; border: none; border-radius: 5px; margin-bottom: 10px; font-size: 14px; font-family: Arial; }
+    textarea { height: 80px; resize: vertical; }
+    button { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; width: 100%; margin-bottom: 5px; }
+    button:hover { background: #c73e54; }
+    .result { background: #0f3460; padding: 15px; border-radius: 5px; margin-top: 10px; }
+    .note-card { background: #0f3460; padding: 15px; border-radius: 5px; margin-top: 10px; border-left: 4px solid #e94560; }
+    .note-card h3 { color: #e94560; margin-bottom: 5px; }
+    .note-card .meta { font-size: 12px; color: #999; margin-bottom: 5px; }
+    .note-card .content { font-size: 14px; }
+    .search-row { display: flex; gap: 10px; }
+    .search-row input, .search-row select { flex: 1; }
+    .btn-group { display: flex; gap: 5px; margin-top: 10px; }
+    .btn-edit { background: #4ecca3; flex: 1; }
+    .btn-del { background: #e94560; flex: 1; }
+    #status { text-align: center; margin-top: 10px; color: #4ecca3; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Simple Notes App</h1>
+
+    <div class="card">
+      <h2>Tambah Note</h2>
+      <input type="text" id="title" placeholder="Judul catatan">
+      <textarea id="content" placeholder="Isi catatan"></textarea>
+      <select id="category">
+        <option value="umum">Umum</option>
+        <option value="kerja">Kerja</option>
+        <option value="belajar">Belajar</option>
+        <option value="pribadi">Pribadi</option>
+      </select>
+      <button onclick="addNote()">Tambah</button>
+      <div id="addResult"></div>
+    </div>
+
+    <div class="card">
+      <h2>Cari Catatan</h2>
+      <div class="search-row">
+        <input type="text" id="search" placeholder="Cari judul/isi...">
+        <select id="filterCat">
+          <option value="">Semua Kategori</option>
+          <option value="umum">Umum</option>
+          <option value="kerja">Kerja</option>
+          <option value="belajar">Belajar</option>
+          <option value="pribadi">Pribadi</option>
+        </select>
+      </div>
+      <button onclick="searchNotes()">Cari</button>
+    </div>
+
+    <div class="card">
+      <h2>Semua Catatan</h2>
+      <button onclick="loadNotes()">Muat Semua</button>
+      <div id="notesList"></div>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3002';
+
+    async function addNote() {
+      const title = document.getElementById('title').value;
+      const content = document.getElementById('content').value;
+      const category = document.getElementById('category').value;
+      const div = document.getElementById('addResult');
+      const status = document.getElementById('status');
+
+      if (!title || !content) { alert('Judul dan isi harus diisi!'); return; }
+      status.textContent = 'Loading...';
+
+      try {
+        const res = await fetch(`${API}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content, category })
+        });
+        const data = await res.json();
+        if (data.success) {
+          div.innerHTML = `<div class="result">Berhasil ditambahkan: <strong>${data.data.title}</strong></div>`;
+          document.getElementById('title').value = '';
+          document.getElementById('content').value = '';
+          loadNotes();
+        } else {
+          div.innerHTML = `<div class="result" style="color:#e94560">${data.message}</div>`;
+        }
+        status.textContent = '';
+      } catch (err) {
+        div.innerHTML = `<div class="result" style="color:#e94560">Error: ${err.message}</div>`;
+        status.textContent = '';
+      }
+    }
+
+    async function loadNotes() {
+      const div = document.getElementById('notesList');
+      const status = document.getElementById('status');
+      status.textContent = 'Loading...';
+
+      try {
+        const res = await fetch(`${API}/notes`);
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          let html = '';
+          data.data.forEach(n => {
+            html += `
+              <div class="note-card">
+                <h3>${n.title}</h3>
+                <div class="meta">Kategori: ${n.category} | ${new Date(n.createdAt).toLocaleDateString('id-ID')}</div>
+                <div class="content">${n.content}</div>
+                <div class="btn-group">
+                  <button class="btn-del" onclick="deleteNote(${n.id})">Hapus</button>
+                </div>
+              </div>`;
+          });
+          div.innerHTML = html;
+        } else {
+          div.innerHTML = '<p style="margin-top:10px;color:#999">Belum ada catatan</p>';
+        }
+        status.textContent = '';
+      } catch (err) {
+        div.innerHTML = `<p style="color:#e94560">Error: ${err.message}</p>`;
+        status.textContent = '';
+      }
+    }
+
+    async function searchNotes() {
+      const search = document.getElementById('search').value;
+      const category = document.getElementById('filterCat').value;
+      const div = document.getElementById('notesList');
+      const status = document.getElementById('status');
+      status.textContent = 'Loading...';
+
+      try {
+        let url = `${API}/notes?`;
+        if (search) url += `search=${search}&`;
+        if (category) url += `category=${category}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          let html = '';
+          data.data.forEach(n => {
+            html += `
+              <div class="note-card">
+                <h3>${n.title}</h3>
+                <div class="meta">Kategori: ${n.category} | ${new Date(n.createdAt).toLocaleDateString('id-ID')}</div>
+                <div class="content">${n.content}</div>
+              </div>`;
+          });
+          div.innerHTML = html;
+        } else {
+          div.innerHTML = '<p style="margin-top:10px;color:#999">Tidak ada catatan ditemukan</p>';
+        }
+        status.textContent = '';
+      } catch (err) {
+        div.innerHTML = `<p style="color:#e94560">Error: ${err.message}</p>`;
+        status.textContent = '';
+      }
+    }
+
+    async function deleteNote(id) {
+      if (!confirm('Yakin hapus?')) return;
+      await fetch(`${API}/notes/${id}`, { method: 'DELETE' });
+      loadNotes();
+    }
+  </script>
+</body>
+</html>
