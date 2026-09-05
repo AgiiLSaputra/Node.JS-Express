@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TokoBuku - Belanja Buku & Baca Artikel</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container nav-container">
+      <a href="/" class="logo">TokoBuku</a>
+      <div class="nav-links">
+        <a href="/index.html">Beranda</a>
+        <a href="/blog.html">Blog</a>
+        <a href="/shop.html">Toko</a>
+        <a href="/cart.html" class="cart-link" id="cartLink">
+          Keranjang <span class="cart-badge" id="cartBadge">0</span>
+        </a>
+        <div id="authNav">
+          <a href="/login.html" class="btn btn-sm" id="loginBtn">Masuk</a>
+        </div>
+      </div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero">
+      <h1>Selamat Datang di TokoBuku</h1>
+      <p>Temukan buku favoritmu dan baca artikel menarik seputar teknologi.</p>
+      <div class="hero-actions">
+        <a href="/shop.html" class="btn">Mulai Belanja</a>
+        <a href="/blog.html" class="btn btn-outline">Baca Artikel</a>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2>Produk Terbaru</h2>
+        <a href="/shop.html" class="link">Lihat Semua</a>
+      </div>
+      <div class="product-grid" id="homeProducts">
+        <p class="text-muted">Memuat produk...</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2>Artikel Terbaru</h2>
+        <a href="/blog.html" class="link">Lihat Semua</a>
+      </div>
+      <div class="post-grid" id="homePosts">
+        <p class="text-muted">Memuat artikel...</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Proyek Hari 2 - REST API dengan PostgreSQL</p>
+    </div>
+  </footer>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const [products, posts] = await Promise.all([
+        API.get('/api/ecommerce/products?limit=4'),
+        API.get('/api/blog/posts?limit=3')
+      ]);
+
+      const productGrid = document.getElementById('homeProducts');
+      if (products.success && products.data.products.length) {
+        productGrid.innerHTML = products.data.products.map(p => `
+          <div class="card">
+            <div class="card-body">
+              <h3 class="card-title">${p.name}</h3>
+              <p class="text-muted">${p.description || 'Tidak ada deskripsi'}</p>
+              <div class="card-footer">
+                <span class="price">Rp ${p.price.toLocaleString('id-ID')}</span>
+                <span class="stock">Stok: ${p.stock}</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        productGrid.innerHTML = '<p class="text-muted">Belum ada produk.</p>';
+      }
+
+      const postGrid = document.getElementById('homePosts');
+      if (posts.success && posts.data.posts.length) {
+        postGrid.innerHTML = posts.data.posts.map(p => `
+          <div class="card">
+            <div class="card-body">
+              <h3 class="card-title">${p.title}</h3>
+              <p class="text-muted">${p.content.substring(0, 100)}...</p>
+              <div class="card-footer">
+                <span class="text-sm">Oleh ${p.author.name}</span>
+                <span class="text-sm text-muted">${new Date(p.createdAt).toLocaleDateString('id-ID')}</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        postGrid.innerHTML = '<p class="text-muted">Belum ada artikel.</p>';
+      }
+    });
+  </script>
+</body>
+</html>

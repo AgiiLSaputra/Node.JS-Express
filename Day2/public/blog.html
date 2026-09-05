@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog - TokoBuku</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container nav-container">
+      <a href="/" class="logo">TokoBuku</a>
+      <div class="nav-links">
+        <a href="/index.html">Beranda</a>
+        <a href="/blog.html" class="active">Blog</a>
+        <a href="/shop.html">Toko</a>
+        <a href="/cart.html" class="cart-link" id="cartLink">
+          Keranjang <span class="cart-badge" id="cartBadge">0</span>
+        </a>
+        <div id="authNav"></div>
+      </div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Blog</h1>
+      <button class="btn" id="newPostBtn" style="display: none;">Tulis Artikel</button>
+    </div>
+
+    <div id="newPostForm" class="card mb-4" style="display: none;">
+      <div class="card-body">
+        <h3>Tulis Artikel Baru</h3>
+        <form id="postForm" class="form">
+          <div class="form-group">
+            <label for="postTitle">Judul</label>
+            <input type="text" id="postTitle" required placeholder="Judul artikel">
+          </div>
+          <div class="form-group">
+            <label for="postContent">Isi</label>
+            <textarea id="postContent" rows="6" required placeholder="Tulis artikel di sini..."></textarea>
+          </div>
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="postPublished"> Terbitkan
+            </label>
+            <div>
+              <button type="button" class="btn btn-outline" onclick="togglePostForm()">Batal</button>
+              <button type="submit" class="btn">Simpan</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="post-list" id="postList">
+      <p class="text-muted">Memuat artikel...</p>
+    </div>
+
+    <div id="postDetail" style="display: none;">
+      <button class="btn btn-outline mb-2" onclick="backToList()">Kembali</button>
+      <article class="article" id="articleContent"></article>
+      <div class="comment-section">
+        <h3>Komentar</h3>
+        <div id="commentForm" class="form-inline" style="display: none;">
+          <input type="text" id="commentInput" placeholder="Tulis komentar..." class="input-flex">
+          <button class="btn" onclick="addComment()">Kirim</button>
+        </div>
+        <div id="commentList"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container"><p>Proyek Hari 2 - REST API dengan PostgreSQL</p></div>
+  </footer>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    let currentPostId = null;
+
+    function togglePostForm() {
+      const form = document.getElementById('newPostForm');
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      document.getElementById('postTitle').value = '';
+      document.getElementById('postContent').value = '';
+      document.getElementById('postPublished').checked = false;
+    }
+
+    async function loadPosts() {
+      const result = await API.get('/api/blog/posts');
+      const list = document.getElementById('postList');
+
+      if (result.success && result.data.posts.length) {
+        list.innerHTML = result.data.posts.map(p => `
+          <div class="card card-hover" onclick="viewPost(${p.id})">
+            <div class="card-body">
+              <h3 class="card-title">${p.title}</h3>
+              <p class="text-muted">${p.content.substring(0, 150)}...</p>
+              <div class="card-footer">
+                <span class="text-sm">${p.author.name}</span>
+                <span class="text-sm text-muted">${new Date(p.createdAt).toLocaleDateString('id-ID')}</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        list.innerHTML = '<p class="text-muted">Belum ada artikel.</p>';
+      }
+    }
+
+    async function viewPost(id) {
+      const result = await API.get(`/api/blog/posts/${id}`);
+      if (!result.success) return;
+
+      const post = result.data.post;
+      currentPostId = id;
+
+      document.getElementById('postList').style.display = 'none';
+      document.querySelector('.page-header').style.display = 'none';
+      document.getElementById('newPostForm').style.display = 'none';
+      document.getElementById('postDetail').style.display = 'block';
+
+      const user = JSON.parse(localStorage.getItem('user'));
+      document.getElementById('commentForm').style.display = user ? 'flex' : 'none';
+
+      document.getElementById('articleContent').innerHTML = `
+        <h1>${post.title}</h1>
+        <div class="article-meta">
+          <span>Oleh ${post.author.name}</span>
+          <span>${new Date(post.createdAt).toLocaleDateString('id-ID')}</span>
+        </div>
+        <div class="article-body">${post.content.replace(/\n/g, '<br>')}</div>
+      `;
+
+      const commentList = document.getElementById('commentList');
+      if (post.comments.length) {
+        commentList.innerHTML = post.comments.map(c => `
+          <div class="comment">
+            <div class="comment-header">
+              <strong>${c.author.name}</strong>
+              <span class="text-sm text-muted">${new Date(c.createdAt).toLocaleDateString('id-ID')}</span>
+            </div>
+            <p>${c.content}</p>
+          </div>
+        `).join('');
+      } else {
+        commentList.innerHTML = '<p class="text-muted">Belum ada komentar.</p>';
+      }
+    }
+
+    function backToList() {
+      document.getElementById('postDetail').style.display = 'none';
+      document.getElementById('postList').style.display = 'block';
+      document.querySelector('.page-header').style.display = 'flex';
+      currentPostId = null;
+    }
+
+    async function addComment() {
+      const input = document.getElementById('commentInput');
+      const content = input.value.trim();
+      if (!content || !currentPostId) return;
+
+      const result = await API.post(`/api/blog/posts/${currentPostId}/comments`, { content });
+      if (result.success) {
+        input.value = '';
+        viewPost(currentPostId);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (user) {
+        document.getElementById('newPostBtn').style.display = 'inline-block';
+      }
+
+      document.getElementById('newPostBtn').addEventListener('click', togglePostForm);
+
+      document.getElementById('postForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+          title: document.getElementById('postTitle').value,
+          content: document.getElementById('postContent').value,
+          published: document.getElementById('postPublished').checked
+        };
+        const result = await API.post('/api/blog/posts', data);
+        if (result.success) {
+          togglePostForm();
+          loadPosts();
+        }
+      });
+
+      loadPosts();
+    });
+  </script>
+</body>
+</html>

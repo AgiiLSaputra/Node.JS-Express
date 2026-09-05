@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keranjang - TokoBuku</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container nav-container">
+      <a href="/" class="logo">TokoBuku</a>
+      <div class="nav-links">
+        <a href="/index.html">Beranda</a>
+        <a href="/blog.html">Blog</a>
+        <a href="/shop.html">Toko</a>
+        <a href="/cart.html" class="cart-link active" id="cartLink">
+          Keranjang <span class="cart-badge" id="cartBadge">0</span>
+        </a>
+        <div id="authNav"></div>
+      </div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h1>Keranjang Belanja</h1>
+
+    <div id="cartEmpty" class="empty-state" style="display: none;">
+      <p>Keranjang kosong</p>
+      <a href="/shop.html" class="btn">Mulai Belanja</a>
+    </div>
+
+    <div id="cartContent">
+      <div class="cart-list" id="cartList"></div>
+
+      <div class="cart-summary" id="cartSummary" style="display: none;">
+        <div class="summary-row">
+          <span>Total</span>
+          <span id="cartTotal">Rp 0</span>
+        </div>
+        <button class="btn btn-block" id="checkoutBtn">Bayar Sekarang</button>
+        <button class="btn btn-outline btn-block" onclick="clearCart()">Kosongkan Keranjang</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container"><p>Proyek Hari 2 - REST API dengan PostgreSQL</p></div>
+  </footer>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    async function loadCart() {
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (!user) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      const result = await API.get('/api/ecommerce/cart');
+      if (!result.success) return;
+
+      const cart = result.data.cart;
+      const items = cart.items;
+
+      if (items.length === 0) {
+        document.getElementById('cartEmpty').style.display = 'block';
+        document.getElementById('cartContent').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('cartEmpty').style.display = 'none';
+      document.getElementById('cartContent').style.display = 'block';
+
+      document.getElementById('cartList').innerHTML = items.map(item => `
+        <div class="cart-item">
+          <div class="cart-item-info">
+            <h4>${item.product.name}</h4>
+            <p class="text-muted">Rp ${item.product.price.toLocaleString('id-ID')} x ${item.quantity}</p>
+          </div>
+          <div class="cart-item-actions">
+            <div class="quantity-control">
+              <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})">-</button>
+              <span>${item.quantity}</span>
+              <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
+            </div>
+            <span class="cart-item-subtotal">Rp ${(item.product.price * item.quantity).toLocaleString('id-ID')}</span>
+            <button class="btn btn-danger btn-sm" onclick="removeItem(${item.id})">Hapus</button>
+          </div>
+        </div>
+      `).join('');
+
+      const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+      document.getElementById('cartTotal').textContent = `Rp ${total.toLocaleString('id-ID')}`;
+      document.getElementById('cartSummary').style.display = 'block';
+      document.getElementById('cartBadge').textContent = items.reduce((sum, item) => sum + item.quantity, 0);
+    }
+
+    async function updateQuantity(itemId, newQuantity) {
+      if (newQuantity < 0) return;
+      await API.put(`/api/ecommerce/cart/items/${itemId}`, { quantity: newQuantity });
+      loadCart();
+    }
+
+    async function removeItem(itemId) {
+      if (!confirm('Hapus item ini?')) return;
+      await API.delete(`/api/ecommerce/cart/items/${itemId}`);
+      loadCart();
+    }
+
+    async function clearCart() {
+      if (!confirm('Kosongkan keranjang?')) return;
+      await API.delete('/api/ecommerce/cart');
+      loadCart();
+    }
+
+    document.getElementById('checkoutBtn').addEventListener('click', async () => {
+      if (!confirm('Lanjutkan pembayaran?')) return;
+
+      const btn = document.getElementById('checkoutBtn');
+      btn.disabled = true;
+      btn.textContent = 'Memproses...';
+
+      const result = await API.post('/api/ecommerce/orders');
+
+      if (result.success) {
+        alert(`Pesanan berhasil! Total: Rp ${result.data.order.totalAmount.toLocaleString('id-ID')}`);
+        window.location.href = '/profile.html';
+      } else {
+        alert(result.message || 'Gagal memproses pesanan');
+        btn.disabled = false;
+        btn.textContent = 'Bayar Sekarang';
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', loadCart);
+  </script>
+</body>
+</html>
